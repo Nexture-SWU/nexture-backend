@@ -4,13 +4,20 @@ from app.core.auth import get_current_user
 
 router = APIRouter()
 
+@router.post("/api/chat/list")
+def list_chats(request: Request, user_uuid: str = Depends(get_current_user) ):
+    chats = request.app.state.chat_service.list_chats(user_uuid)
+
+    return {"chats": chats}
+
 @router.post("/api/chat/create")
 def create_chat(request: Request, user_uuid: str = Depends(get_current_user) ):
 
-    chat_id = request.app.state.chat_service.create_chat(user_uuid)
+    chat_id, book_data = request.app.state.chat_service.create_chat(user_uuid)
 
     return {
         "chat_id": chat_id,
+        "book_data": book_data,
         "message": "채팅방이 생성되었습니다."
     }
 

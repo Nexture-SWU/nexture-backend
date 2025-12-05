@@ -9,7 +9,7 @@ class FirebaseChatService:
     # ------------------------------------------------------
     #  채팅방 생성
     # ------------------------------------------------------
-    def create_chat(self, user_uuid: str):
+    def create_chat(self, user_uuid: str, current_step: int = 1, current_id: int = 1):
         chat_id = str(uuid.uuid4())
 
         chat_ref = (
@@ -18,16 +18,45 @@ class FirebaseChatService:
         )
 
         # 처음부터 커리큘럼 시작: step1 / id1 / 0번 질문부터
+        book_data = db.collection("curriculums").document(f"step{1}").get().to_dict()[str(1)]
+
         chat_ref.set({
             "chat_id": chat_id,
+            "title": book_data.get("title", ""),
             "created_at": datetime.now(timezone.utc),
-            "current_step": 1,
-            "current_id": 1,
+            "current_step": current_step,
+            "current_id": current_id,
             "current_question_index": 0
         })
 
-        return chat_id
+        return chat_id, {
+            "title": book_data.get("title", ""),
+            "contents": book_data.get("contents", ""),
+        }
+    # ------------------------------------------------------
+    #  채팅방 목록 불러오기
+    # ------------------------------------------------------
+    def list_chats(self, user_uuid: str):
+        chats_ref = (
+            db.collection("users").document(user_uuid)
+            .collection("chats")
+        )
 
+        docs = chats_ref.order_by("created_at", direction="DESCENDING").stream()
+
+        chats = []
+        for doc in docs:
+            data = doc.to_dict()
+            chats.append({
+                "chat_id": data["chat_id"],
+                "created_at": data["created_at"],
+                "title": data["title"],
+                "current_step": data["current_step"],
+                "current_id": data["current_id"],
+                "current_question_index": data["current_question_index"],
+            })
+
+        return chats
     # ------------------------------------------------------
     # 기본 메시지 저장/불러오기
     # ------------------------------------------------------
@@ -85,7 +114,6 @@ class FirebaseChatService:
             "contents": data.get("contents", ""),
             "questions": data.get("questions", [])
         }
-
     # ------------------------------------------------------
     # 단일 엔드포인트에서 자동 분기 처리
     # ------------------------------------------------------
