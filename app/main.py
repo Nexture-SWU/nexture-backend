@@ -36,6 +36,10 @@ app.include_router(auth.router)
 app.include_router(user.router)
 app.include_router(chat.router)
 
+@app.get("/api/healthz")
+def health_check():
+    return {"status": "ok"}
+
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
