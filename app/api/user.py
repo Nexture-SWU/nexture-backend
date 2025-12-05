@@ -5,6 +5,19 @@ from app.schemas.user import User
 
 router = APIRouter()
 
+# 사용자 검색
+@router.get("/api/users/search")
+def search_user_ids(prefix: str = Query(..., description="검색할 아이디 prefix"),
+                    limit: int = Query(5, description="검색 결과 제한 수")):
+
+    users = user_service.search_users_by_login_id_prefix(prefix, limit)
+    
+    return {
+        "prefix": prefix,
+        "count": len(users),
+        "results": users
+    }
+
 # 사용자 정보 조회
 @router.get("/api/users/{id}", response_model=User)
 def get_user_profile(id: str, _: str = Depends(auth.get_current_user)):
@@ -14,6 +27,7 @@ def get_user_profile(id: str, _: str = Depends(auth.get_current_user)):
     return {
         "id": id,
         "name": user_data["name"],
+        "role": user_data["role"],
     }
 
 # 아이디 중복 확인

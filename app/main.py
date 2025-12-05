@@ -1,9 +1,12 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
-# from apscheduler.schedulers.background import BackgroundScheduler
-# from app.jobs.reminder import send_due_soon_notifications
-from app.api import (auth, user)
+from langchain_openai import ChatOpenAI
+
+from app.services.chat_service import FirebaseChatService
+
+from app.api import (auth, user, chat)
 
 # FastAPI 앱 생성
 app = FastAPI(
@@ -11,6 +14,13 @@ app = FastAPI(
     version="1.0.0",
     description="A simple FastAPI example with clean structure.",
 )
+
+# 
+app.state.llm = ChatOpenAI(
+    model=os.getenv("OPENAI_API_MODEL", "gpt-4o-mini"),
+    api_key=os.getenv("OPENAI_API_KEY")
+)
+app.state.chat_service = FirebaseChatService()
 
 # CORS 설정 
 app.add_middleware(
@@ -24,19 +34,7 @@ app.add_middleware(
 # 라우터 등록
 app.include_router(auth.router)
 app.include_router(user.router)
-
-# @app.on_event("startup")
-# async def startup_event():
-#     start_scheduler()
-    
-# @app.on_event("shutdown")
-# async def on_shutdown():
-#     print("Shutting down...")
-
-# def start_scheduler():
-#     scheduler = BackgroundScheduler()
-#     scheduler.add_job(send_due_soon_notifications, "interval", hours=2)
-#     scheduler.start()
+app.include_router(chat.router)
 
 def custom_openapi():
     if app.openapi_schema:

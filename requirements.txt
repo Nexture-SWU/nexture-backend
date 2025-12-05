@@ -6,7 +6,10 @@ python-dotenv==1.1.1
 python_jose==3.5.0
 uvicorn==0.35.0
 python-multipart==0.0.20
-bcrypt==4.3.0
 apscheduler==3.11.0
 tzlocal==5.3.1
 google-cloud-firestore==2.21.0
+openai>=1.0.0
+langchain
+langchain-openai
+bcrypt==4.0.1

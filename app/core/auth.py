@@ -28,9 +28,9 @@ def get_current_user(request: Request) -> str:
     
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id = payload.get("sub")
-        if not user_id:
+        user_uuid = payload.get("sub")
+        if not user_uuid:
             raise HTTPException(status_code=401, detail="Token missing subject (sub)")
-        return user_id
+        return user_uuid
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")

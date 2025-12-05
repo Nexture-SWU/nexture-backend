@@ -10,8 +10,8 @@ def join(user: RequestUserCreate):
     try:
         user_service.create_user(user)
         return {"message": "회원가입 성공"}
-    except Exception:
-        raise HTTPException(status_code=400, detail="이미 존재하는 아이디입니다.")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"이미 존재하는 아이디입니다.: {str(e)}")
 
 # 로그인
 @router.post("/api/auth/login", response_model=ResponseUserLogin)

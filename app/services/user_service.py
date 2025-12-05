@@ -5,6 +5,7 @@ from passlib.context import CryptContext
 from app.schemas.user import RequestUserCreate
 from google.cloud.firestore_v1.field_path import FieldPath  
 from app.utils.common import generate_uuid_with_timestamp
+from datetime import datetime, timezone
 
 # 비밀번호 해싱 설정
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -22,7 +23,7 @@ def get_user_by_access_token(uuid: str):
     uuid를 기반으로 사용자 정보를 조회합니다.
     """
     user_doc = db.collection("users").document(uuid).get()
-    if user_doc:
+    if user_doc.exists:
         user_data = user_doc.to_dict()
         
         return user_data
@@ -70,6 +71,9 @@ def create_user(user: RequestUserCreate):
         "id": user.id,
         "password": hashed_pw,
         "name": user.name,
+        "role": user.role,
+        "relation": user.relation,
+        "created_at": datetime.now(timezone.utc)
     })
 
 # 비밀번호 검증
@@ -80,77 +84,104 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 # 사용자 및 관련 데이터 삭제
-def delete_user(user_id: str)->bool:
+def delete_user(user_uuid: str)->bool:
     """
     회원 탈퇴 처리. 사용자 계정, 팔로우 관계 등을 모두 삭제합니다.
     """
     try:
-        db.collection("users").document(user_id).delete()
-        follows = db.collection("follow").where("follower_id", "==", user_id).stream()
-        for doc in follows:
-            doc.reference.delete()
-
-        follows = db.collection("follow").where("followee_id", "==", user_id).stream()
-        for doc in follows:
-            doc.reference.delete()        
-
+        db.collection("users").document(user_uuid).delete()
         return True
     except Exception as e:
         print(f"[ERROR] 유저 삭제 실패: {e}")
         return False
 
+def search_users_by_login_id_prefix(prefix: str, limit: int = 5):
     """
-    주어진 접두사(prefix)를 기반으로 사용자 ID를 검색합니다.
-    - 사용자 문서 ID 기준으로 검색합니다 (document_id 사용).
-    - 최대 5명의 사용자만 검색됩니다.
-    - 각 사용자에 대해 기본 정보(id, uid, profileImage, userName)를 포함합니다.
-    - 각 사용자에 대해 followers(자신을 팔로우하는 사람들) 및 following(자신이 팔로우하는 사람들) 목록도 함께 반환합니다.
+    prefix 기반으로 사용자 아이디를 검색합니다.
     """
     try:
         start = prefix
         end = prefix + "\uf8ff"
 
-        # 먼저 유저 검색
-        user_query = (
+        query = (
             db.collection("users")
-            .order_by(FieldPath.document_id())
+            .order_by("id")
             .start_at([start])
             .end_at([end])
-            .limit(5)
+            .limit(limit)
             .stream()
         )
 
-        # 검색된 유저 ID들 수집
         users = []
-        user_ids = []
-        for doc in user_query:
+        for doc in query:
             data = doc.to_dict()
-            target_user_id = doc.id
-
             users.append({
-                "id": target_user_id,
-                "uid": data.get("uid"),
-                "profileImage": data.get("profileImage"),
-                "userName": data.get("userName"),
+                "id": data.get("id"),
+                "name": data.get("name"),
+                "role": data.get("role"),
             })
-            user_ids.append(target_user_id)
 
-        # isFollowing 추가
-        for user in users:
-            target_id = user["id"]
-
-            # followers: 그 사용자를 팔로우하는 사람들
-            follower_docs = db.collection("follow").where("followee_id", "==", target_id).stream()
-            followers = [doc.to_dict().get("follower_id") for doc in follower_docs]
-
-            # following: 그 사용자가 팔로우하는 사람들
-            following_docs = db.collection("follow").where("follower_id", "==", target_id).stream()
-            following = [doc.to_dict().get("followee_id") for doc in following_docs]
-
-            user["followers"] = followers
-            user["following"] = following
         return users
 
     except Exception as e:
         print("Error:", e)
         return []
+
+def update_user_relation(user_uuid: str, other_user_id: str) -> bool:
+    """
+    현재 로그인한 user_uuid 유저의 relation 필드에
+    other_user_id(로그인 ID)의 유저 문서 UUID를 저장합니다.
+    단, 두 유저의 role 이 달라야 합니다.
+    """
+    try:
+        # 1) 현재 로그인한 유저 데이터 조회
+        current_user_ref = db.collection("users").document(user_uuid)
+        current_user_doc = current_user_ref.get()
+
+        if not current_user_doc.exists:
+            print("[ERROR] 현재 로그인한 유저 문서가 존재하지 않음.")
+            return False
+
+        current_user = current_user_doc.to_dict()
+        current_user_role = current_user.get("role")
+
+        if current_user_role is None:
+            print("[ERROR] 현재 유저 role 없음.")
+            return False
+
+        # 2) other_user_id 를 가진 대상 유저 조회 (id 필드로 검색)
+        docs = db.collection("users").where(filter=FieldPath("id"), op_string="==", value=other_user_id).limit(1).stream()
+
+        target_user_doc = None
+        for doc in docs:
+            target_user_doc = doc
+            break
+
+        if target_user_doc is None:
+            print("[INFO] other_user_id 를 가진 유저가 존재하지 않음.")
+            return False
+
+        target_user = target_user_doc.to_dict()
+        target_user_uuid = target_user_doc.id
+        target_user_role = target_user.get("role")
+
+        if target_user_role is None:
+            print("[ERROR] 대상 유저 role 없음.")
+            return False
+
+        # 3) role 비교 (달라야 함)
+        if current_user_role == target_user_role:
+            print("[INFO] 두 유저의 역할(role)이 같아서 relation 불가.")
+            return False
+
+        # 4) relation 업데이트
+        current_user_ref.update({
+            "relation": target_user_uuid
+        })
+
+        print(f"[INFO] relation 업데이트 성공: {user_uuid} → {target_user_uuid}")
+        return True
+
+    except Exception as e:
+        print("[ERROR] 유저 relation 업데이트 실패:", e)
+        return False
