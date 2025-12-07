@@ -47,4 +47,5 @@ def get_my_profile(uuid: str = Depends(auth.get_current_user)):
     return {
         "id": user_data["id"],
         "name": user_data["name"] if user_data["name"] else "",
+        "role": user_data["role"],
     }
