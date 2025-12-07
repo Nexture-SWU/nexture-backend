@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Request, Depends
-from app.schemas.chat import ChatMessageRequest
+from fastapi import APIRouter, HTTPException, Request, Depends
+from app.schemas.chat import ChatMessageRequest, BookReportRequest
 from app.core.auth import get_current_user 
 
 router = APIRouter()
@@ -38,3 +38,27 @@ async def chat_api(
     )
 
     return {"reply": reply}
+
+
+@router.post("/api/chat/{chat_id}/book-report")
+async def book_report_api(
+    chat_id: str,
+    req: BookReportRequest,
+    request: Request,
+    user_uuid: str = Depends(get_current_user) 
+):
+
+    message = request.app.state.chat_service.process_book_report(
+        user_uuid=user_uuid,
+        chat_id=chat_id,
+        subject=req.subject,
+        summary=req.summary,
+        book_review=req.book_review,
+        debate_review=req.debate_review
+    )
+
+    if message:
+        message = "감상문이 성공적으로 저장되었습니다."
+        return {"message": message}
+    else:
+        HTTPException(status_code=500, detail="감상문 저장에 실패했습니다.")

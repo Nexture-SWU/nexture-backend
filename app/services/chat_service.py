@@ -189,3 +189,26 @@ class FirebaseChatService:
         })
 
         return empathy_text + "\n\n" + end_msg
+    
+    # ------------------------------------------------------
+    # 책 감상문 저장 처리
+    # ------------------------------------------------------
+    @staticmethod
+    def process_book_report(user_uuid: str, chat_id: str, subject: str, summary: str, book_review: str, debate_review: str):
+        chat_ref = (
+            db.collection("users").document(user_uuid)
+            .collection("chats").document(chat_id)
+        )
+
+        # book_report 문서 생성 또는 덮어쓰기
+        book_report_ref = chat_ref.collection("book_report").document("data")
+
+        book_report_ref.set({
+            "subject": subject,
+            "summary": summary,
+            "book_review": book_review,
+            "debate_review": debate_review,
+            "created_at": datetime.now(timezone.utc)
+        })
+        
+        return True

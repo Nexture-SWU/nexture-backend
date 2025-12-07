@@ -6,3 +6,9 @@ class ChatCreateRequest(BaseModel):
 
 class ChatMessageRequest(BaseModel):
     message: str
+    
+class BookReportRequest(BaseModel):
+    subject: str
+    summary: str
+    book_review: str
+    debate_review: str
