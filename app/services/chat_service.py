@@ -149,11 +149,11 @@ class FirebaseChatService:
         # 공감 생성
         # ---------------------
         empathy_prompt = f"""
-        사용자가 이렇게 말했어:
+        사용자가 이렇게 말했어요:
 
         "{user_message}"
 
-        너무 길지 않게, 따뜻하고 자연스럽게 공감해줘. 
+        너무 길지 않게, 따뜻하고 자연스럽게 공감해주세요. 해요(~요, 비격식 존대)체를 써서 대답해주세요. 
         """
         empathy_text = llm.invoke([HumanMessage(content=empathy_prompt)]).content
 
