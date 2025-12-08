@@ -1,5 +1,6 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from langchain_openai import ChatOpenAI
@@ -7,6 +8,7 @@ from langchain_openai import ChatOpenAI
 from app.services.chat_service import FirebaseChatService
 
 from app.api import (auth, user, chat)
+from app.config.errors import *
 
 # FastAPI 앱 생성
 app = FastAPI(
@@ -66,6 +68,19 @@ def custom_openapi():
     return app.openapi_schema
 
 app.openapi = custom_openapi
+
+def make_handler(status_code: int, default_detail: str):
+    async def handler(request: Request, exc: Exception):
+        detail = str(exc) or default_detail
+        return JSONResponse(status_code=status_code, content={"detail": detail})
+    return handler
+
+app.add_exception_handler(ChatNotFoundError, make_handler(404, "채팅방을 찾을 수 없습니다."))
+app.add_exception_handler(BookReportNotFoundError, make_handler(404, "감상문을 찾을 수 없습니다."))
+app.add_exception_handler(FinalReportNotFoundError, make_handler(404, "최종 보고서를 찾을 수 없습니다."))
+app.add_exception_handler(CurriculumNotFoundError, make_handler(500, "커리큘럼 데이터가 없습니다."))
+app.add_exception_handler(InvalidChatStateError, make_handler(400, "잘못된 토론 상태입니다."))
+app.add_exception_handler(LLMRetryFailedError, make_handler(500, "LLM 재시도 실패"))
 
 if __name__ == "__main__":
     import uvicorn
