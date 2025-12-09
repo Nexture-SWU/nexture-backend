@@ -146,9 +146,9 @@ class FirebaseChatService:
 
                 return text
 
-            except Exception:
+            except Exception as e:
                 if attempt == retries:
-                    raise LLMRetryFailedError("LLM 호출이 3회 모두 실패했습니다.")
+                    raise LLMRetryFailedError("LLM 호출이 3회 모두 실패했습니다.", str(e))
                 time.sleep(delay)
 
     # ================================
@@ -213,14 +213,14 @@ class FirebaseChatService:
     # ================================
     # 감상문 저장
     # ================================
-    def create_book_report(self, user_uuid: str, chat_id: str, subject: str, summary: str, review: str, debate: str):
+    def create_book_report(self, user_uuid: str, chat_id: str, subject: str, summary: str, book_review: str, debate_review: str):
         ref = self.get_chat_ref(user_uuid, chat_id).collection("book_report").document("data")
 
         ref.set({
             "subject": subject,
             "summary": summary,
-            "book_review": review,
-            "debate_review": debate,
+            "book_review": book_review,
+            "debate_review": debate_review,
             "created_at": datetime.now(timezone.utc)
         })
         return True
@@ -303,6 +303,7 @@ class FirebaseChatService:
                 """
 
                 raw_eval = self.llm_retry(llm, eval_system, eval_user)
+                print(raw_eval)
 
                 processed_eval = raw_eval.replace('```json', '').replace('```python', '').replace('```', '').strip()
 
@@ -328,7 +329,7 @@ class FirebaseChatService:
                     raise ValueError("JSON 객체를 찾지 못했습니다.")
                 
                 json_str = json_str.replace('다요.', '다.').replace('요요.', '요.')
-                eval_data = literal_eval(raw_eval)
+                eval_data = literal_eval(json_str)
             
 
                 final_report = {
@@ -346,9 +347,9 @@ class FirebaseChatService:
 
                 chat_ref.collection("final_report").document("data").set(final_report)
                 return final_report
-            except Exception:
+            except Exception as e:
                 if attempt == max_retries:
-                    raise LLMRetryFailedError("LLM 호출이 3회 모두 실패했습니다.")
+                    raise LLMRetryFailedError("LLM 호출이 3회 모두 실패했습니다.: ", str(e))
                 time.sleep(delay)
 
 

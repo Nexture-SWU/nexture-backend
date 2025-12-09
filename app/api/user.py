@@ -32,7 +32,7 @@ def get_user_profile(id: str, _: str = Depends(auth.get_current_user)):
 
 # 아이디 중복 확인
 @router.get("/api/users/{id}/exists")
-def check_id(id: str):
+def get_check_id(id: str):
     if user_service.get_user(id):
         raise HTTPException(status_code=400, detail="이미 존재하는 아이디입니다.")
     return {"message": "사용 가능한 아이디입니다."}

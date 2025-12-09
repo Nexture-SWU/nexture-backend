@@ -6,8 +6,9 @@ from fastapi.openapi.utils import get_openapi
 from langchain_openai import ChatOpenAI
 
 from app.services.chat_service import FirebaseChatService
+from app.services.report_service import ReportService
 
-from app.api import (auth, user, chat)
+from app.api import (auth, user, chat, report)
 from app.config.errors import *
 
 # FastAPI 앱 생성
@@ -23,6 +24,7 @@ app.state.llm = ChatOpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
 )
 app.state.chat_service = FirebaseChatService()
+app.state.report_service = ReportService()
 
 # CORS 설정 
 app.add_middleware(
@@ -37,6 +39,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(user.router)
 app.include_router(chat.router)
+app.include_router(report.router)
 
 @app.get("/api/healthz")
 def health_check():
