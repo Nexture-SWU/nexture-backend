@@ -30,6 +30,7 @@ def get_user_profile(id: str, _: str = Depends(auth.get_current_user)):
         "id": id,
         "name": user_data["name"],
         "role": user_data["role"],
+        "relation": user_data["relation"]
     }
 
 # 아이디 중복 확인
@@ -43,11 +44,12 @@ def get_check_id(id: str):
 # ------------------ ME -------------------
 
 # 내 정보 조회
-@router.get("/api/user/me", response_model=User)
+@router.get("/api/me", response_model=User)
 def get_my_profile(user_uuid: str = Depends(auth.get_current_user)):
     user_data = user_service.get_user_by_uuid(user_uuid=user_uuid)
     return {
         "id": user_data["id"],
         "name": user_data["name"] if user_data["name"] else "",
         "role": user_data["role"],
+        "relation": user_data["relation"]
     }

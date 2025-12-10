@@ -6,6 +6,7 @@ class User(BaseModel):
     id: str
     name: str
     role: Literal["학생", "학부모", "관리자"]
+    relation: str
 
 class RequestUserLogin(BaseModel):
     id: str
