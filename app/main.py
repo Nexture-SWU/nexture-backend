@@ -29,7 +29,12 @@ app.state.report_service = ReportService()
 # CORS 설정 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    # allow_origins=["*"], 
+    allow_origins=[
+        "http://localhost:3000",
+        "https://localhost:3000",
+        # 나중에 배포용 서버 넣기
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
