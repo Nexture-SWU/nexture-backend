@@ -18,19 +18,39 @@ def is_user(user_id: str):
     else:
         return False
 
-def get_user_by_access_token(uuid: str):
+def save_refresh_token(user_uuid: str, refresh_token: str):
+    db.collection("users").document(user_uuid).update({
+        "refresh_token": refresh_token,
+        "refresh_token_created": datetime.now(timezone.utc)
+    })
+
+def get_user_by_uuid(user_uuid: str, for_reissue: bool=False, refresh_token: str=None):
     """
     uuid를 기반으로 사용자 정보를 조회합니다.
     """
-    user_doc = db.collection("users").document(uuid).get()
+    user_doc = db.collection("users").document(user_uuid).get()
     if user_doc.exists:
         user_data = user_doc.to_dict()
+        if for_reissue:
+            stored_refresh = user_data.get("refresh_token")
+            if stored_refresh != refresh_token:
+                raise user_data(status_code=401, detail="Refresh token이 올바르지 않습니다. 다시 로그인 해주세요.")
+            
+            new_access_token = auth.create_access_token(data={"sub": user_uuid})
+
+            # refresh token 재발급 여부 (보안정책에 따라 결정)
+            new_refresh_token = auth.create_refresh_token({"sub": user_uuid})
+            save_refresh_token(user_uuid, new_refresh_token)
+
+            return new_access_token, new_refresh_token
         
-        return user_data
+        else:
+            return user_data
     return None
 
 
-def get_user(user_id: str, for_login: bool = False):
+
+def get_user_by_id(user_id: str, for_login: bool = False):
     """
     user_id를 기반으로 사용자 정보를 조회합니다.
     """
@@ -40,17 +60,17 @@ def get_user(user_id: str, for_login: bool = False):
         user_data = user_doc.to_dict()
         user_uuid = user_doc.id
         if for_login:
-            access_token = auth.create_access_token(
-                                data={"sub": user_uuid},
-                                expires_delta=timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
-                            )
-
-            return user_data, access_token
+            access_token = auth.create_access_token(data={"sub": user_uuid})
+            refresh_token = auth.create_refresh_token(data={"sub": user_uuid})
+            save_refresh_token(user_uuid, refresh_token)
+            return user_data, access_token, refresh_token
         else:
             return user_data
 
     return None
     
+
+
 # 사용자 생성 (회원가입)
 def create_user(user: RequestUserCreate):
     """

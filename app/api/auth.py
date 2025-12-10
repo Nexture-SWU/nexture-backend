@@ -1,6 +1,8 @@
-from fastapi import APIRouter, HTTPException
-from app.schemas.user import RequestUserCreate, RequestUserLogin, ResponseUserLogin
+from fastapi import APIRouter, HTTPException, Request, Depends
+from app.schemas.user import RequestUserCreate, RequestUserLogin, ResponseUserLogin, ResponseUserReissue
 from app.services import user_service
+
+from app.core import auth
 
 router = APIRouter()
 
@@ -16,7 +18,7 @@ def join(user: RequestUserCreate):
 # 로그인
 @router.post("/api/auth/login", response_model=ResponseUserLogin)
 def login(data: RequestUserLogin):
-    user_data, access_token = user_service.get_user(data.id, True)
+    user_data, access_token, refresh_token = user_service.get_user_by_id(data.id, for_login=True)
 
     if not user_data:
         raise HTTPException(status_code=400, detail="사용자가 존재하지 않습니다.")
@@ -25,7 +27,17 @@ def login(data: RequestUserLogin):
         raise HTTPException(status_code=400, detail="비밀번호가 일치하지 않습니다.")
 
     return {
-        "id": user_data["id"],
-        "name": user_data["name"],
         "access_token": access_token,
+        "refresh_token": refresh_token,
+    }
+
+@router.post("/api/auth/reissue", response_model=ResponseUserReissue)
+def reissue_token(request: Request, user_uuid: str = Depends(auth.get_current_user)):
+    auth_header = request.headers.get("authorization")
+    refresh_token = auth_header.split(" ")[1]
+    access_token, refresh_token = user_service.get_user_by_uuid(user_uuid = user_uuid, for_reissue=True, refresh_token=refresh_token)
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
     }
