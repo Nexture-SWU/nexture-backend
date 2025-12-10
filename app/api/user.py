@@ -6,7 +6,7 @@ from app.schemas.user import User
 router = APIRouter()
 
 # 사용자 검색
-@router.get("/api/users/search")
+@router.get("/api/user/search")
 def search_user_ids(prefix: str = Query(..., description="검색할 아이디 prefix"),
                     limit: int = Query(5, description="검색 결과 제한 수")):
 
@@ -19,7 +19,7 @@ def search_user_ids(prefix: str = Query(..., description="검색할 아이디 pr
     }
 
 # 사용자 정보 조회
-@router.get("/api/users/{id}", response_model=User)
+@router.get("/api/user/{id}", response_model=User)
 def get_user_profile(id: str, _: str = Depends(auth.get_current_user)):
     user_data = user_service.get_user(id)
     if not user_data:
@@ -31,7 +31,7 @@ def get_user_profile(id: str, _: str = Depends(auth.get_current_user)):
     }
 
 # 아이디 중복 확인
-@router.get("/api/users/{id}/exists")
+@router.get("/api/user/{id}/exists")
 def get_check_id(id: str):
     if user_service.get_user(id):
         raise HTTPException(status_code=400, detail="이미 존재하는 아이디입니다.")
@@ -41,7 +41,7 @@ def get_check_id(id: str):
 # ------------------ ME -------------------
 
 # 내 정보 조회
-@router.get("/api/me", response_model=User)
+@router.get("/api/user/me", response_model=User)
 def get_my_profile(uuid: str = Depends(auth.get_current_user)):
     user_data = user_service.get_user_by_access_token(uuid)
     return {
