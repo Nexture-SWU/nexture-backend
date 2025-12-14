@@ -46,8 +46,13 @@ async def get_final_reports_api(
     final_reports = request.app.state.report_service.list_all_final_reports(
         user_uuid=user_uuid,
     )
+    
+    chat_id, book_data = request.app.state.chat_service.create_chat(user_uuid)
 
-    return {"final_reports": final_reports}
+    return {
+        "final_reports": final_reports, 
+        "chat_id": chat_id,
+        "message": "채팅방이 생성되었습니다."}
 
 @router.get("/api/list/report/book")
 async def get_book_reports_api(
