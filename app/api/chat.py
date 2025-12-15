@@ -68,8 +68,11 @@ async def create_final_report_api(
         user_uuid=user_uuid,
         chat_id=chat_id
     )
+    chat_id, book_data = request.app.state.chat_service.create_chat(user_uuid)
 
-    return {"final_report": final_report}
+    return {"final_report": final_report,         
+            "chat_id": chat_id,
+            "message": "채팅방이 생성되었습니다."}
 
 # =================================================
 # get
