@@ -31,18 +31,76 @@ class FirebaseChatService:
     # ================================
     # 채팅방 생성
     # ================================
-    def create_chat(self, user_uuid: str, current_step: int = 1, current_id: int = 1):
-        chat_id = str(uuid.uuid4())
+    
+    def get_latest_chat(self, user_uuid: str):
+        chats_ref = (
+            db.collection("users")
+            .document(user_uuid)
+            .collection("chats")
+            .order_by("created_at", direction="DESCENDING")
+            .limit(1)
+            .stream()
+        )
 
+        for chat in chats_ref:
+            return chat.to_dict()
+
+        return None
+
+    def get_next_curriculum(self, current_step: int, current_id: int):
+        curriculum_ref = db.collection("curriculums").document(f"step{current_step}")
+        curriculum = curriculum_ref.get().to_dict()
+
+        if curriculum is None:
+            raise CurriculumNotFoundError(f"step{current_step} 커리큘럼 없음")
+
+        next_id = current_id + 1
+
+        # 같은 step에 다음 id가 있으면
+        if str(next_id) in curriculum:
+            return current_step, next_id
+
+        # 없으면 다음 step으로
+        next_step = current_step + 1
+        next_step_ref = db.collection("curriculums").document(f"step{next_step}")
+        next_curriculum = next_step_ref.get().to_dict()
+
+        if next_curriculum is None or "1" not in next_curriculum:
+            raise CurriculumNotFoundError("다음 커리큘럼이 존재하지 않습니다")
+
+        return next_step, 1
+
+    def create_chat(self, user_uuid: str):
+        latest_chat = self.get_latest_chat(user_uuid)
+
+        # 시작 step/id 결정
+        if latest_chat is None:
+            current_step, current_id = 1, 1
+        else:
+            current_step = latest_chat["current_step"]
+            current_id = latest_chat["current_id"]
+            current_step, current_id = self.get_next_curriculum(current_step, current_id)
+
+        # chat 생성
+        chat_id = str(uuid.uuid4())
         chat_ref = self.get_chat_ref(user_uuid, chat_id)
 
-        curriculum = db.collection("curriculums").document(f"step{current_step}").get().to_dict()
+        curriculum = (
+            db.collection("curriculums")
+            .document(f"step{current_step}")
+            .get()
+            .to_dict()
+        )
+
         if curriculum is None:
             raise CurriculumNotFoundError(f"step{current_step} 커리큘럼을 찾을 수 없습니다")
-        if str(current_step) not in curriculum:
-            raise CurriculumNotFoundError(f"step{current_step} 커리큘럼에서 {current_id} 데이터를 찾을 수 없습니다")
 
-        book_data = curriculum["1"]
+        if str(current_id) not in curriculum:
+            raise CurriculumNotFoundError(
+                f"step{current_step} 커리큘럼에서 {current_id} 데이터를 찾을 수 없습니다"
+            )
+
+        book_data = curriculum[str(current_id)] 
 
         chat_ref.set({
             "chat_id": chat_id,
@@ -68,6 +126,30 @@ class FirebaseChatService:
         results = []
         for doc in docs:
             data = doc.to_dict()
+            chat_ref = doc.reference
+
+            has_book_report = (
+                len(
+                    list(
+                        chat_ref
+                        .collection("book_report")
+                        .limit(1)
+                        .stream()
+                    )
+                ) > 0
+            )
+
+            has_final_report = (
+                len(
+                    list(
+                        chat_ref
+                        .collection("final_report")
+                        .limit(1)
+                        .stream()
+                    )
+                ) > 0
+            )
+
             results.append({
                 "chat_id": data["chat_id"],
                 "created_at": data["created_at"],
@@ -75,8 +157,12 @@ class FirebaseChatService:
                 "current_step": data["current_step"],
                 "current_id": data["current_id"],
                 "current_question_index": data["current_question_index"],
+                "has_book_report": has_book_report,
+                "has_final_report": has_final_report,
             })
+
         return results
+
 
     # ================================
     # 메시지 로딩/저장
@@ -306,10 +392,7 @@ class FirebaseChatService:
                 print(raw_eval)
 
                 processed_eval = raw_eval.replace('```json', '').replace('```python', '').replace('```', '').strip()
-
-                # true/false → Python literal로 변경
                 processed_eval = processed_eval.replace('true', 'True').replace('false', 'False')
-
                 start = None
                 depth = 0
 
