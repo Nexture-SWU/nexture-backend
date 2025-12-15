@@ -33,6 +33,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "https://localhost:3000",
+        "https://nexture-swu.github.io"
         # 나중에 배포용 서버 넣기
     ],
     allow_credentials=True,
