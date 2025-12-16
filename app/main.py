@@ -1,12 +1,14 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from langchain_openai import ChatOpenAI
 
 from app.services.chat_service import FirebaseChatService
-
-from app.api import (auth, user, chat, book)
+from app.services.report_service import ReportService
+from app.api import (auth, user, chat, report, book)
+from app.config.errors import *
 
 # FastAPI 앱 생성
 app = FastAPI(
@@ -21,11 +23,18 @@ app.state.llm = ChatOpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
 )
 app.state.chat_service = FirebaseChatService()
+app.state.report_service = ReportService()
 
 # CORS 설정 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    # allow_origins=["*"], 
+    allow_origins=[
+        "http://localhost:3000",
+        "https://localhost:3000",
+        "https://nexture-swu.github.io"
+        # 나중에 배포용 서버 넣기
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -36,6 +45,7 @@ app.include_router(auth.router)
 app.include_router(user.router)
 app.include_router(chat.router)
 app.include_router(book.router)
+app.include_router(report.router)
 
 @app.get("/api/healthz")
 def health_check():
@@ -67,6 +77,19 @@ def custom_openapi():
     return app.openapi_schema
 
 app.openapi = custom_openapi
+
+def make_handler(status_code: int, default_detail: str):
+    async def handler(request: Request, exc: Exception):
+        detail = str(exc) or default_detail
+        return JSONResponse(status_code=status_code, content={"detail": detail})
+    return handler
+
+app.add_exception_handler(ChatNotFoundError, make_handler(404, "채팅방을 찾을 수 없습니다."))
+app.add_exception_handler(BookReportNotFoundError, make_handler(404, "감상문을 찾을 수 없습니다."))
+app.add_exception_handler(FinalReportNotFoundError, make_handler(404, "최종 보고서를 찾을 수 없습니다."))
+app.add_exception_handler(CurriculumNotFoundError, make_handler(500, "커리큘럼 데이터가 없습니다."))
+app.add_exception_handler(InvalidChatStateError, make_handler(400, "잘못된 토론 상태입니다."))
+app.add_exception_handler(LLMRetryFailedError, make_handler(500, "LLM 재시도 실패"))
 
 if __name__ == "__main__":
     import uvicorn

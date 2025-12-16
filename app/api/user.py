@@ -6,7 +6,7 @@ from app.schemas.user import User
 router = APIRouter()
 
 # 사용자 검색
-@router.get("/api/users/search")
+@router.get("/api/user/search")
 def search_user_ids(prefix: str = Query(..., description="검색할 아이디 prefix"),
                     limit: int = Query(5, description="검색 결과 제한 수")):
 
@@ -19,21 +19,24 @@ def search_user_ids(prefix: str = Query(..., description="검색할 아이디 pr
     }
 
 # 사용자 정보 조회
-@router.get("/api/users/{id}", response_model=User)
+@router.get("/api/user/{id}", response_model=User)
 def get_user_profile(id: str, _: str = Depends(auth.get_current_user)):
-    user_data = user_service.get_user(id)
+    user_data = user_service.get_user_by_id(id)
     if not user_data:
-        raise HTTPException(status_code=400, detail="존재하지 않는 사용자입니다.")
+        user_data = user_service.get_user_by_uuid(user_uuid=id)
+        if not user_data:
+            raise HTTPException(status_code=400, detail="존재하지 않는 사용자입니다.")
     return {
         "id": id,
         "name": user_data["name"],
         "role": user_data["role"],
+        "relation": user_data["relation"]
     }
 
 # 아이디 중복 확인
-@router.get("/api/users/{id}/exists")
-def check_id(id: str):
-    if user_service.get_user(id):
+@router.get("/api/user/{id}/exists")
+def get_check_id(id: str):
+    if user_service.get_user_by_id(id):
         raise HTTPException(status_code=400, detail="이미 존재하는 아이디입니다.")
     return {"message": "사용 가능한 아이디입니다."}
 
@@ -42,10 +45,11 @@ def check_id(id: str):
 
 # 내 정보 조회
 @router.get("/api/me", response_model=User)
-def get_my_profile(uuid: str = Depends(auth.get_current_user)):
-    user_data = user_service.get_user_by_access_token(uuid)
+def get_my_profile(user_uuid: str = Depends(auth.get_current_user)):
+    user_data = user_service.get_user_by_uuid(user_uuid=user_uuid)
     return {
         "id": user_data["id"],
         "name": user_data["name"] if user_data["name"] else "",
         "role": user_data["role"],
+        "relation": user_data["relation"]
     }

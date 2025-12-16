@@ -1,18 +1,15 @@
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, Request, Depends
 from app.schemas.chat import ChatMessageRequest, BookReportRequest
 from app.core.auth import get_current_user 
 
 router = APIRouter()
 
-@router.post("/api/chat/list")
-def list_chats(request: Request, user_uuid: str = Depends(get_current_user) ):
-    chats = request.app.state.chat_service.list_chats(user_uuid)
-
-    return {"chats": chats}
+# =================================================
+# post
+# =================================================
 
 @router.post("/api/chat/create")
-def create_chat(request: Request, user_uuid: str = Depends(get_current_user) ):
-
+def create_chat_id(request: Request, user_uuid: str = Depends(get_current_user) ):
     chat_id, book_data = request.app.state.chat_service.create_chat(user_uuid)
 
     return {
@@ -21,14 +18,14 @@ def create_chat(request: Request, user_uuid: str = Depends(get_current_user) ):
         "message": "채팅방이 생성되었습니다."
     }
 
-@router.post("/api/chat/{chat_id}")
-async def chat_api(
+@router.post("/api/chat/{chat_id}/message")
+async def create_message_api(
     chat_id: str,
     req: ChatMessageRequest,
     request: Request,
-    user_uuid: str = Depends(get_current_user) 
+    user_uuid: str = Depends(get_current_user)
 ):
-    llm = request.app.state.llm 
+    llm = request.app.state.llm
 
     reply = request.app.state.chat_service.process_chat(
         llm=llm,
@@ -39,16 +36,14 @@ async def chat_api(
 
     return {"reply": reply}
 
-
-@router.post("/api/chat/{chat_id}/book-report")
-async def book_report_api(
+@router.post("/api/report/book/{chat_id}")
+async def create_book_report_api(
     chat_id: str,
     req: BookReportRequest,
     request: Request,
-    user_uuid: str = Depends(get_current_user) 
+    user_uuid: str = Depends(get_current_user)
 ):
-
-    message = request.app.state.chat_service.process_book_report(
+    request.app.state.chat_service.create_book_report(
         user_uuid=user_uuid,
         chat_id=chat_id,
         subject=req.subject,
@@ -57,8 +52,48 @@ async def book_report_api(
         debate_review=req.debate_review
     )
 
-    if message:
-        message = "감상문이 성공적으로 저장되었습니다."
-        return {"message": message}
-    else:
-        HTTPException(status_code=500, detail="감상문 저장에 실패했습니다.")
+    return {"message": "감상문이 성공적으로 저장되었습니다."}
+
+
+@router.post("/api/report/final/{chat_id}")
+async def create_final_report_api(
+    chat_id: str,
+    request: Request,
+    user_uuid: str = Depends(get_current_user)
+):
+    llm = request.app.state.llm
+
+    final_report = request.app.state.chat_service.create_final_report(
+        llm=llm,
+        user_uuid=user_uuid,
+        chat_id=chat_id
+    )
+    chat_id, book_data = request.app.state.chat_service.create_chat(user_uuid)
+
+    return {"final_report": final_report,         
+            "chat_id": chat_id,
+            "message": "채팅방이 생성되었습니다."}
+
+# =================================================
+# get
+# =================================================
+
+@router.get("/api/list/chat")
+def get_chats_api(request: Request, user_uuid: str = Depends(get_current_user) ):
+    chats = request.app.state.chat_service.list_chats(user_uuid)
+
+    return {"chats": chats}
+
+@router.get("/api/chat/{chat_id}/message")
+async def get_messages_api(
+    chat_id: str,
+    request: Request,
+    user_uuid: str = Depends(get_current_user)
+):
+    chat = request.app.state.chat_service.get_chat_detail(
+        user_uuid=user_uuid,
+        chat_id=chat_id,
+        mode="chat_messages"
+    )
+
+    return {"chat": chat}
