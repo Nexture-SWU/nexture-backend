@@ -7,8 +7,7 @@ from langchain_openai import ChatOpenAI
 
 from app.services.chat_service import FirebaseChatService
 from app.services.report_service import ReportService
-
-from app.api import (auth, user, chat, report)
+from app.api import (auth, user, chat, report, book)
 from app.config.errors import *
 
 # FastAPI 앱 생성
@@ -45,6 +44,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(user.router)
 app.include_router(chat.router)
+app.include_router(book.router)
 app.include_router(report.router)
 
 @app.get("/api/healthz")

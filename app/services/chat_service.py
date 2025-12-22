@@ -359,7 +359,6 @@ class FirebaseChatService:
         이 책의 줄거리를 간단하게 2단락 이내로 요약해 주세요.
         해요체로 작성하고, '단락'이라는 단어를 넣지 마세요.
         """
-        
         summary = self.llm_retry(llm, summary_prompt_system, summary_prompt_user)
 
         max_retries = 3 
@@ -507,3 +506,43 @@ class FirebaseChatService:
             }
 
             return final_report
+
+
+    # ------------------------------------------------------
+    # 책 정보 조회
+    # ------------------------------------------------------
+    def get_current_book(self, user_uuid: str, chat_id: str):
+        # 채팅 문서 조회
+        chat_ref = (
+            db.collection("users")
+            .document(user_uuid)
+            .collection("chats")
+            .document(chat_id)
+        )
+
+        chat_doc = chat_ref.get()
+        if not chat_doc.exists:
+            raise ValueError("Chat not found")
+
+        chat_data = chat_doc.to_dict()
+        current_step = chat_data.get("current_step")
+        current_id = chat_data.get("current_id")
+
+        # 커리큘럼 문서 조회
+        curriculum_ref = db.collection("curriculums").document(f"step{current_step}")
+        curriculum_doc = curriculum_ref.get()
+
+        if not curriculum_doc.exists:
+            raise ValueError("Curriculum step not found")
+
+        curriculum_data = curriculum_doc.to_dict()
+        book_data = curriculum_data.get(str(current_id))
+
+        if not book_data:
+            raise ValueError("Book data not found")
+
+        return {
+            "author": book_data.get("author", ""),
+            "title": book_data.get("title", ""),
+            "contents": book_data.get("contents", "")
+        }
