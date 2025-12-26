@@ -103,9 +103,19 @@ class ReportService:
         return results
     
     def get_total_report(self, user_uuid: str):
-        user_doc = db.collection("users").document(user_uuid).get().to_dict()
+        snap = (
+            db.collection("users")
+            .document(user_uuid)
+            .collection("total_report")
+            .document("data")
+            .get()
+        )
 
-        return user_doc.get("total_report")
+        if not snap.exists:
+            return None
+
+        return snap.to_dict()
+
 
     def llm_retry(self, llm, system_prompt: str, user_prompt: str, retries=3, delay=1):
         for attempt in range(1, retries + 1):
@@ -151,13 +161,6 @@ class ReportService:
 
         return "\n\n".join(lines)
     
-    def normalize_reports(self, reports: list[dict]) -> str:
-        return json.dumps(
-            reports,
-            ensure_ascii=False,
-            sort_keys=True,
-            default=str   # DatetimeWithNanoseconds 처리
-        )
     
     def create_total_report(self, llm, user_uuid: str):
         user_ref = db.collection("users").document(user_uuid)

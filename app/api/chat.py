@@ -36,6 +36,24 @@ async def create_message_api(
 
     return {"reply": reply}
 
+@router.post("/api/assistant/{chat_id}/message")
+async def create_assistant_message_api(
+    chat_id: str,
+    req: ChatMessageRequest,
+    request: Request,
+    user_uuid: str = Depends(get_current_user)
+):
+    llm = request.app.state.llm
+
+    reply = request.app.state.chat_service.process_assistant_chat(
+        llm=llm,
+        user_uuid=user_uuid,
+        chat_id=chat_id,
+        user_message=req.message
+    )
+
+    return {"reply": reply}
+
 
 # =================================================
 # get

@@ -182,11 +182,36 @@ class FirebaseChatService:
         })
 
     @staticmethod
+    def save_assistant_message(user_uuid: str, chat_id: str, role: str, content: str):
+        ref = (
+            db.collection("users").document(user_uuid)
+            .collection("chats").document(chat_id)
+            .collection("assistant").document()
+        )
+        ref.set({
+            "messageId": ref.id,
+            "role": role,
+            "content": content,
+            "timestamp": datetime.now(timezone.utc)
+        })
+
+    @staticmethod
     def load_messages(user_uuid: str, chat_id: str):
         ref = (
             db.collection("users").document(user_uuid)
             .collection("chats").document(chat_id)
             .collection("messages")
+        )
+        docs = ref.order_by("timestamp").stream()
+
+        return [{"role": d.to_dict()["role"], "content": d.to_dict()["content"]} for d in docs]
+    
+    @staticmethod
+    def load_assistant_messages(user_uuid: str, chat_id: str):
+        ref = (
+            db.collection("users").document(user_uuid)
+            .collection("chats").document(chat_id)
+            .collection("assistant")
         )
         docs = ref.order_by("timestamp").stream()
 
@@ -295,6 +320,49 @@ class FirebaseChatService:
         })
 
         return empathy_text + "\n\n" + end_msg
+    
+    # ================================
+    # 어시스턴트 채팅 프로세스
+    # ================================
+    def process_assistant_chat(self, llm, user_uuid: str, chat_id: str, user_message: str):
+
+        FirebaseChatService.save_assistant_message(user_uuid, chat_id, "user", user_message)
+
+        chat_ref = self.get_chat_ref(user_uuid, chat_id)
+        chat_data = chat_ref.get().to_dict()
+
+        if chat_data is None:
+            raise ChatNotFoundError("chat_id 없음")
+
+        step, idx, q_index = (
+            chat_data.get("current_step"),
+            chat_data.get("current_id"),
+            chat_data.get("current_question_index"),
+        )
+
+        if q_index is None:
+            raise InvalidChatStateError()
+
+        curriculum = self.load_curriculum(step, idx)
+        contents = curriculum["contents"]
+        messages = self.load_assistant_messages(chat_id)
+
+        # 공감 생성
+        empathy_prompt = f"""
+        책 내용:
+        {contents}
+
+        {f"이전 대화 내용: {messages[-3:-1]}" if len(messages)>2 else ""}
+        사용자가 이렇게 물어봤어요:
+        "{user_message}"
+        너무 길지 않게, 따뜻하고 자연스럽게 답변해주세요. 해요(~요, 비격식 존대)체를 써서 대답해주세요.
+        """
+
+        answer = llm.invoke([HumanMessage(content=empathy_prompt)]).content
+        self.save_assistant_message(user_uuid, chat_id, "assistant", answer)
+
+
+        return answer
 
     # ================================
     # 감상문 저장
