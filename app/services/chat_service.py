@@ -345,7 +345,7 @@ class FirebaseChatService:
 
         curriculum = self.load_curriculum(step, idx)
         contents = curriculum["contents"]
-        messages = self.load_assistant_messages(chat_id)
+        messages = self.load_assistant_messages(user_uuid, chat_id)
 
         # 공감 생성
         empathy_prompt = f"""
