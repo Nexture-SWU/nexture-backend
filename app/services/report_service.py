@@ -72,21 +72,6 @@ class ReportService:
 
         return [{"role": d.to_dict()["role"], "content": d.to_dict()["content"]} for d in docs]
     
-    # ==========================================
-    # 1) 모든 커리큘럼(step1 ~ n, 각 index까지) 불러오기
-    # ==========================================
-    def load_all_curriculums(self) -> Dict[str, Any]:
-        ref = db.collection("curriculums")
-        docs = ref.stream()
-
-        all_curriculums = {}
-
-        for doc in docs:
-            step_key = doc.id 
-            step_data = doc.to_dict()
-            all_curriculums[step_key] = step_data
-
-        return all_curriculums
     
     # ================================
     # 감상문 저장
