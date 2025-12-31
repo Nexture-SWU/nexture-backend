@@ -7,6 +7,7 @@ from langchain_openai import ChatOpenAI
 
 from app.services.chat_service import FirebaseChatService
 from app.services.report_service import ReportService
+from app.services.book_service import BookService
 from app.api import (auth, user, chat, report, book)
 from app.config.errors import *
 
@@ -24,6 +25,7 @@ app.state.llm = ChatOpenAI(
 )
 app.state.chat_service = FirebaseChatService()
 app.state.report_service = ReportService()
+app.state.book_service = BookService()
 
 # CORS 설정 
 app.add_middleware(

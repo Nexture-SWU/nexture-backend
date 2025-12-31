@@ -14,7 +14,7 @@ async def create_book_report_api(
     request: Request,
     user_uuid: str = Depends(get_current_user)
 ):
-    request.app.state.chat_service.create_book_report(
+    request.app.state.report_service.create_book_report(
         user_uuid=user_uuid,
         chat_id=chat_id,
         subject=req.subject,
@@ -34,7 +34,7 @@ async def create_final_report_api(
 ):
     llm = request.app.state.llm
 
-    final_report = request.app.state.chat_service.create_final_report(
+    final_report = request.app.state.report_service.create_final_report(
         llm=llm,
         user_uuid=user_uuid,
         chat_id=chat_id
@@ -65,7 +65,7 @@ async def get_book_report_api(
     request: Request,
     user_uuid: str = Depends(get_current_user)
 ):
-    book_report = request.app.state.chat_service.get_chat_detail(
+    book_report = request.app.state.report_service.get_report_detail(
         user_uuid=user_uuid,
         chat_id=chat_id,
         mode="book_report"
@@ -80,7 +80,7 @@ async def get_final_report_api(
     user_uuid: str = Depends(get_current_user)
 ):
 
-    final_report = request.app.state.chat_service.get_chat_detail(
+    final_report = request.app.state.report_service.get_report_detail(
         user_uuid=user_uuid,
         chat_id=chat_id,
         mode="final_report"
@@ -121,11 +121,4 @@ async def get_book_reports_api(
     )
 
     return {"book_reports": book_reports}
-
-@router.get("/api/list/curriculum")
-async def get_all_curriculum_api(request: Request):
-
-    curriculums = request.app.state.report_service.load_all_curriculums()
-
-    return {"curriculums": curriculums}
 
